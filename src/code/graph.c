@@ -137,26 +137,49 @@ GameStateOverlay* Graph_GetNextGameState(GameState* gameState) {
 }
 
 void Graph_Init(GraphicsContext* gfxCtx) {
+    // Clear all memory in the GraphicsContext structure (gfxCtx) to zero.
+    // This ensures that all fields in gfxCtx are reset and don't contain leftover garbage data.
     bzero(gfxCtx, sizeof(GraphicsContext));
+
+    // Initialize the graphics pool index to 0.
+    // This is used to manage different rendering resources during gameplay.
     gfxCtx->gfxPoolIdx = 0;
+
+    // Initialize the framebuffer index to 0.
+    // The framebuffer is the memory where the game draws images before showing them on screen.
     gfxCtx->fbIdx = 0;
+
+    // Set the video interface (viMode) pointer to NULL.
+    // This will later be updated to point to the correct video settings based on the system and game.
     gfxCtx->viMode = NULL;
 
+    // Different initialization logic based on the version of the game:
+    // If the version is earlier than PAL 1.0, some features are not supported.
 #if OOT_VERSION < PAL_1_0
+    // For older versions, set video interface features to 0 (disabled).
     gfxCtx->viFeatures = 0;
 #else
-    gfxCtx->viFeatures = gViConfigFeatures;
-    gfxCtx->xScale = gViConfigXScale;
-    gfxCtx->yScale = gViConfigYScale;
+    // For newer versions (PAL 1.0 and beyond), use pre-configured video settings.
+    gfxCtx->viFeatures = gViConfigFeatures;  // Set specific video features.
+    gfxCtx->xScale = gViConfigXScale;        // Set horizontal scaling (for screen resolution adjustments).
+    gfxCtx->yScale = gViConfigYScale;        // Set vertical scaling.
 #endif
 
+    // Create a message queue for handling communication between the graphics system and other parts of the game.
+    // The message queue (gfxCtx->queue) allows the graphics context to receive and send messages (e.g., rendering commands).
     osCreateMesgQueue(&gfxCtx->queue, gfxCtx->msgBuff, ARRAY_COUNT(gfxCtx->msgBuff));
 
+    // If debugging features are enabled in this build of the game, perform additional initialization steps.
 #if DEBUG_FEATURES
+    // Run a debug-specific function (likely for logging or testing purposes).
     func_800D31F0();
+
+    // Add a fault client to the debugging system.
+    // This means that if something goes wrong in the graphics system, the fault handler will capture and log it.
     Fault_AddClient(&sGraphFaultClient, Graph_FaultClient, NULL, NULL);
 #endif
 }
+
 
 void Graph_Destroy(GraphicsContext* gfxCtx) {
 #if DEBUG_FEATURES
@@ -468,34 +491,54 @@ void Graph_Update(GraphicsContext* gfxCtx, GameState* gameState) {
 }
 
 void Graph_ThreadEntry(void* arg0) {
-    GraphicsContext gfxCtx;
-    GameState* gameState;
-    u32 size;
+    GraphicsContext gfxCtx; // Initializes a GraphicsContext, which manages rendering resources like buffers, polygons, and settings.
+    GameState* gameState;   // Pointer to the active game state (e.g., menu, gameplay, cutscene, etc.).
+    u32 size;               // Stores the memory size needed for the current game state instance.
     GameStateOverlay* nextOvl = &gGameStateOverlayTable[GAMESTATE_SETUP];
-    GameStateOverlay* ovl;
+    // Points to the setup state (the starting state for the game) in the game state overlay table.
 
+    GameStateOverlay* ovl; // Pointer to the currently active game state overlay (used during transitions).
+
+    // Logs that the graphics thread has started running.
     PRINTF(T("グラフィックスレッド実行開始\n", "Start graphic thread execution\n"));
+
+    // Step 1: Initialize the GraphicsContext.
+    // This sets up buffers, clears memory, and prepares rendering resources.
     Graph_Init(&gfxCtx);
 
+    // Step 2: Main loop to handle game state transitions.
+    // The loop continues until no more game states are left to transition to (i.e., `nextOvl == NULL`).
     while (nextOvl != NULL) {
-        ovl = nextOvl;
+        ovl = nextOvl; // Update the pointer to the currently active game state overlay.
+
+        // Load the resources for the current game state overlay (e.g., code, textures, animations).
         Overlay_LoadGameState(ovl);
 
+        // Retrieve the memory size required for the current game state instance.
         size = ovl->instanceSize;
+
+        // Log the size of the game state instance being initialized.
         PRINTF(T("クラスサイズ＝%dバイト\n", "Class size = %d bytes\n"), size);
 
+        // Allocate memory for the game state using the system arena.
+        // This creates the space needed to run the current game state.
         gameState = SYSTEM_ARENA_MALLOC(size, "../graph.c", 1196);
 
+        // Handle memory allocation failure.
+        // If the memory allocation fails, the game cannot proceed, and an error is raised.
         if (gameState == NULL) {
 #if DEBUG_FEATURES
-            char faultMsg[0x50];
+            char faultMsg[0x50]; // Buffer for an error message.
 
-            PRINTF(T("確保失敗\n", "Failure to secure\n"));
+            PRINTF(T("確保失敗\n", "Failure to secure\n")); // Log memory allocation failure.
 
+            // Format a detailed error message about the failed allocation.
             sprintf(faultMsg, "CLASS SIZE= %d bytes", size);
+
+            // Crash the game with a detailed error message.
             Fault_AddHungupAndCrashImpl("GAME CLASS MALLOC FAILED", faultMsg);
 #elif OOT_VERSION < NTSC_1_1
-            Fault_AddHungupAndCrash("../graph.c", 1067);
+            Fault_AddHungupAndCrash("../graph.c", 1067); // Handle crashes for older versions.
 #elif OOT_VERSION < PAL_1_0
             Fault_AddHungupAndCrash("../graph.c", 1070);
 #elif OOT_VERSION < GC_JP
@@ -505,20 +548,40 @@ void Graph_ThreadEntry(void* arg0) {
 #endif
         }
 
+        // Initialize the game state.
+        // This sets up everything needed for the current game state (e.g., logic, rendering).
         GameState_Init(gameState, ovl->init, &gfxCtx);
 
+        // Step 3: Update the game state while it is running.
+        // The game state handles logic (e.g., player movement, rendering) until it signals it’s done.
         while (GameState_IsRunning(gameState)) {
-            Graph_Update(&gfxCtx, gameState);
+            Graph_Update(&gfxCtx, gameState); // Update graphics and game logic for the current frame.
         }
 
+        // Step 4: Transition to the next game state.
+
+        // Retrieve the next game state to load after the current one finishes.
         nextOvl = Graph_GetNextGameState(gameState);
+
+        // Clean up the current game state.
+        // This involves freeing resources used by the state and calling its `destroy` function.
         GameState_Destroy(gameState);
+
+        // Free the memory allocated for the game state.
         SYSTEM_ARENA_FREE(gameState, "../graph.c", 1227);
+
+        // Unload resources associated with the current overlay.
         Overlay_FreeGameState(ovl);
     }
+
+    // Step 5: Cleanup when the graphics thread is finished.
+    // Destroy the GraphicsContext to free up all rendering resources.
     Graph_Destroy(&gfxCtx);
+
+    // Log that the graphics thread has finished running.
     PRINTF(T("グラフィックスレッド実行終了\n", "End of graphic thread execution\n"));
 }
+
 
 void* Graph_Alloc(GraphicsContext* gfxCtx, size_t size) {
     TwoHeadGfxArena* thga = &gfxCtx->polyOpa;
@@ -552,7 +615,6 @@ void Graph_OpenDisps(Gfx** dispRefs, GraphicsContext* gfxCtx, const char* file, 
         gDPNoOpOpenDisp(gfxCtx->overlay.p++, file, line);
     }
 }
-
 void Graph_CloseDisps(Gfx** dispRefs, GraphicsContext* gfxCtx, const char* file, int line) {
     if (R_HREG_MODE == HREG_MODE_UCODE_DISAS && R_UCODE_DISAS_LOG_MODE != 4) {
         if (dispRefs[0] + 1 == gfxCtx->polyOpa.p) {

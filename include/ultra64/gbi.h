@@ -1992,47 +1992,47 @@ typedef struct Gwords {
     unsigned int w0;
     unsigned int w1;
 } Gwords;
-
 /*
  * This union is the fundamental type of the display list.
  * It is, by law, exactly 64 bits in size.
  */
 typedef union Gfx {
-    Gwords          words;
-    Gnoop           noop;
-    Gdma            dma;
+    Gwords words;       // The raw data or instructions for the GPU.
+    Gnoop noop;         // Represents a "no operation" command. Used for padding or placeholders.
+    Gdma dma;           // Direct Memory Access command for transferring data to the GPU.
 #ifdef F3DEX_GBI_2
-    Gdma2           dma2;
+    Gdma2 dma2;         // An alternative DMA command, used in F3DEX_GBI_2 (an advanced rendering engine variant).
 #endif
-    Gvtx            vtx;
-    Gtri            tri;
+    Gvtx vtx;           // Vertex data command. Defines points in 3D space for rendering shapes.
+    Gtri tri;           // Triangle command. Defines a single triangle for rendering.
 #if (defined(F3DLP_GBI) || defined(F3DEX_GBI))
-    Gtri2           tri2;
-    Gquad           quad;
+    Gtri2 tri2;         // Double-triangle command. Optimized for rendering two triangles at once.
+    Gquad quad;         // Quadrilateral command. Defines a rectangle or square for rendering.
 #endif
-    Gline3D         line;
+    Gline3D line;       // Line command. Defines a straight line in 3D space.
 #if (defined(F3DLP_GBI) || defined(F3DEX_GBI))
-    Gcull           cull;
+    Gcull cull;         // Culling command. Used to skip rendering objects not visible to the camera.
 #endif
-    Gmovewd         movewd;
-    Gmovemem        movemem;
-    Gpopmtx         popmtx;
-    Gsegment        segment;
-    GsetothermodeH  setothermodeH;
-    GsetothermodeL  setothermodeL;
-    Gtexture        texture;
-    Gperspnorm      perspnorm;
-    Gsetimg         setimg;
-    Gsetcombine     setcombine;
-    Gsetcolor       setcolor;
-    Gfillrect       fillrect;   /* use for setscissor also */
-    Gsettile        settile;
-    Gloadtile       loadtile;   /* use for loadblock also, th is dxt */
-    Gsettilesize    settilesize;
-    Gloadtlut       loadtlut;
-    Gsetprimdepth   setprimdepth;
-    long long int force_structure_alignment;
+    Gmovewd movewd;     // Command to move data within the GPU’s internal memory.
+    Gmovemem movemem;   // Command to move memory blocks from CPU to GPU.
+    Gpopmtx popmtx;     // Command to remove the top matrix from the GPU's transformation stack.
+    Gsegment segment;   // Command to set up a memory segment for rendering.
+    GsetothermodeH setothermodeH; // Command to configure high-level GPU settings.
+    GsetothermodeL setothermodeL; // Command to configure low-level GPU settings.
+    Gtexture texture;   // Command to set up texture rendering (e.g., images on 3D objects).
+    Gperspnorm perspnorm; // Command to normalize perspective transformations for 3D rendering.
+    Gsetimg setimg;     // Command to set an image for rendering (e.g., textures or sprites).
+    Gsetcombine setcombine; // Command to combine multiple rendering effects (e.g., lighting and texture).
+    Gsetcolor setcolor; // Command to set the rendering color (e.g., background or object color).
+    Gfillrect fillrect; // Command to fill a rectangular area (e.g., clear the screen or draw a box).
+    Gsettile settile;   // Command to configure textures for rendering.
+    Gloadtile loadtile; // Command to load a texture tile into the GPU.
+    Gsettilesize settilesize; // Command to set the size of a texture tile.
+    Gloadtlut loadtlut; // Command to load a texture lookup table (for advanced texturing).
+    Gsetprimdepth setprimdepth; // Command to set the depth of rendered primitives (for layering effects).
+    long long int force_structure_alignment; // Forces proper memory alignment for all commands.
 } Gfx;
+
 
 /*
  * Macros to assemble the graphics display list

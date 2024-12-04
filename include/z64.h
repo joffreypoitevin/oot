@@ -289,18 +289,48 @@ typedef struct FileSelectState {
 } FileSelectState; // size = 0x1CAE0
 
 typedef struct GameStateOverlay {
-    /* 0x00 */ void*     loadedRamAddr;
-    /* 0x04 */ RomFile   file;      // if applicable
-    /* 0x0C */ void*     vramStart; // if applicable
-    /* 0x10 */ void*     vramEnd;   // if applicable
-    /* 0x14 */ void*     unk_14;
-    /* 0x18 */ void*     init;    // initializes and executes the given context
-    /* 0x1C */ void*     destroy; // deconstructs the context, and sets the next context to load
-    /* 0x20 */ void*     unk_20;
-    /* 0x24 */ void*     unk_24;
+    /* 0x00 */ void* loadedRamAddr;
+    // Pointer to the location in RAM where this overlay has been loaded.
+    // NULL if the overlay has not been loaded yet.
+
+    /* 0x04 */ RomFile file;
+    // ROM file associated with this overlay. Contains information like
+    // the start and end addresses of the overlay in the ROM.
+    // This is used to load the overlay into RAM if necessary.
+
+    /* 0x0C */ void* vramStart;
+    // Start address of the overlay in virtual memory.
+    // This is the address the overlay expects to operate at in RAM.
+
+    /* 0x10 */ void* vramEnd;
+    // End address of the overlay in virtual memory.
+    // This, combined with `vramStart`, defines the range of memory used by the overlay.
+
+    /* 0x14 */ void* unk_14;
+    // Unknown purpose. Could be metadata or a function pointer related to this overlay.
+
+    /* 0x18 */ void* init;
+    // Pointer to the initialization function for the game state.
+    // This function sets up everything required to run this state (e.g., loading resources, initializing variables).
+
+    /* 0x1C */ void* destroy;
+    // Pointer to the cleanup function for the game state.
+    // This function frees memory and resources used by the state when transitioning out of it.
+
+    /* 0x20 */ void* unk_20;
+    // Unknown purpose. Could be related to auxiliary tasks for this state or additional function pointers.
+
+    /* 0x24 */ void* unk_24;
+    // Unknown purpose. Similar to `unk_20`, possibly used for auxiliary features or internal logic.
+
     /* 0x28 */ UNK_TYPE4 unk_28;
-    /* 0x2C */ u32       instanceSize;
-} GameStateOverlay; // size = 0x30
+    // Unknown type, used for additional metadata or flags related to the overlay.
+
+    /* 0x2C */ u32 instanceSize;
+    // The size of the memory required to create an instance of this game state.
+    // This is used during memory allocation to ensure the proper amount of space is reserved.
+} GameStateOverlay;
+// size = 0x30
 
 typedef struct PreNMIState {
     /* 0x00 */ GameState state;
